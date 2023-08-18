@@ -8,6 +8,8 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEditor.IMGUI.Controls;
+using UnityEditor.SceneManagement;
+using UnityEditor.Experimental.SceneManagement;
 using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -115,6 +117,9 @@ public class LocationToolsWindow : EditorWindow
         // Selections
         Selection.selectionChanged += OnSelectionChanged;
         EditorApplication.hierarchyChanged += OnHierarchyChanged;
+        EditorSceneManager.sceneOpened += OnSceneOpened;
+        PrefabStage.prefabStageOpened += OnStageChanged;
+        PrefabStage.prefabStageClosing += OnStageChanged;
         RefreshComponentTypes();
         RefreshSelectedComponentTypes();
     }
@@ -125,6 +130,9 @@ public class LocationToolsWindow : EditorWindow
         // Selections
         Selection.selectionChanged -= OnSelectionChanged;
         EditorApplication.hierarchyChanged -= OnHierarchyChanged;
+        EditorSceneManager.sceneOpened -= OnSceneOpened;
+        PrefabStage.prefabStageOpened -= OnStageChanged;
+        PrefabStage.prefabStageClosing -= OnStageChanged;
     }
 
     void OnGUI()
@@ -164,6 +172,27 @@ public class LocationToolsWindow : EditorWindow
         }
     }
 
+    #region Shared
+    private void OnSceneOpened(Scene scene, OpenSceneMode mode)
+    {
+        RefreshComponentTypes();
+    }
+
+    private void OnStageChanged(PrefabStage stage)
+    {
+        RefreshComponentTypes();
+    }
+
+    private Scene GetCurrentScene()
+    {
+        var stage = PrefabStageUtility.GetCurrentPrefabStage();
+        if (stage != null && stage.scene != null) {
+            return stage.scene;
+        }
+        return EditorSceneManager.GetActiveScene();
+    }
+
+    #endregion
 
     #region Import Tool
     #region Utils
@@ -682,7 +711,7 @@ public class LocationToolsWindow : EditorWindow
     private void RefreshComponentTypes(Type type)
     {
         componentTypes = GetAllComponentTypes(type).Distinct().ToList();
-        componentTypeStrings = componentTypes.Select(t => t.ToString()).OrderBy(s => s).ToArray();
+        componentTypeStrings = componentTypes.Where(t => t != null).Select(t => t.ToString()).OrderBy(s => s).ToArray();
 
         // used in Strip tool
         if (componentTypeFlags.Count == componentTypes.Count)
@@ -701,11 +730,10 @@ public class LocationToolsWindow : EditorWindow
 
     private IEnumerable<Type> GetAllComponentTypes(Type type)
     {
-        return SceneManager
-            .GetActiveScene()
+        return GetCurrentScene()
             .GetRootGameObjects()
             .SelectMany(go => go.GetComponentsInChildren(type, selectInactive))
-            .Select(c => c.GetType());
+            .Select(c => c?.GetType());
     }
 
 
@@ -751,17 +779,16 @@ public class LocationToolsWindow : EditorWindow
         // DateTime start = DateTime.Now;
 
         List<GameObject> results = new List<GameObject>();
-        Type selectedType = componentTypes.FirstOrDefault(t => t.ToString() == componentType);
+        Type selectedType = componentTypes.Where(t => t != null).FirstOrDefault(t => t.ToString() == componentType);
 
         // Debug.Log($"Selected type {selectedType}");
 
-        results = SceneManager
-            .GetActiveScene()
+        results = GetCurrentScene()
             .GetRootGameObjects()
             .SelectMany(go => go.GetComponentsInChildren(selectedType, selectInactive))
             .Select(c => c.gameObject).ToList();
 
-        // Debug.Log($"SceneManager RootObjects GetComponentsInChildren ran. {DateTime.Now.Subtract(start).Milliseconds}ms");
+        // Debug.Log($"EditorSceneManager RootObjects GetComponentsInChildren ran. {DateTime.Now.Subtract(start).Milliseconds}ms");
 
         if (!selectInactive)
         {
@@ -1039,12 +1066,13 @@ public class LocationToolsWindow : EditorWindow
         var type = GetTypeTargetMode();
         var selectedCompTypes = Selection.gameObjects
             .SelectMany(go => go.GetComponentsInChildren(type, selectInactive))
-            .Select(c => c.GetType())
+            .Select(c => c?.GetType())
             .Distinct().ToList();
 
         // Debug.Log($"selectedCompTypes {selectedCompTypes.Count}");
 
         groupComponentTypeOptions = selectedCompTypes
+            .Where(t => t != null)
             .Select(t => t.ToString()).OrderBy(s => s).ToArray();
 
         // Debug.Log($"groupComponentTypeOptions {groupComponentTypeOptions.Count()}");
