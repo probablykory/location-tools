@@ -290,18 +290,16 @@ public class LocationToolsWindow : EditorWindow
             if (prefab != null)
             {
                 Quaternion quat = new Quaternion(blueprintPrefab.rotX, blueprintPrefab.rotY, blueprintPrefab.rotZ, blueprintPrefab.rotW);
-                // TODO - detect if prefab is part of an actual prefab, and use PrefabUtility
-                Instantiate(prefab, new Vector3(blueprintPrefab.posX, blueprintPrefab.posY, blueprintPrefab.posZ), quat, importTarget.transform);
 
-                // if (strip)
-                // {
-                //     GameObject build = Instantiate(prefab, new Vector3(prefab.posX, prefab.posY, prefab.posZ), quat, importTarget.transform);
-                //     stripComponent(build);
-                // }
-                // else
-                // {
-                //    Instantiate...
-                // }
+                if (maintainPrefabConnections) {
+                    GameObject result = PrefabUtility.InstantiatePrefab(prefab, importTarget.transform) as GameObject;
+                    if (result != null) {
+                        result.transform.position = new Vector3(blueprintPrefab.posX, blueprintPrefab.posY, blueprintPrefab.posZ);
+                        result.transform.rotation = quat;
+                    }
+                } else {
+                    Instantiate(prefab, new Vector3(blueprintPrefab.posX, blueprintPrefab.posY, blueprintPrefab.posZ), quat, importTarget.transform);
+                }
             }
             counter++;
         }
@@ -318,6 +316,7 @@ public class LocationToolsWindow : EditorWindow
     List<string> blueprintsList = new List<string>();
     List<GameObject> cachedPrefabs = new List<GameObject>();
     List<BlueprintPrefab> structuresList = new List<BlueprintPrefab>();
+    private bool maintainPrefabConnections = false;
     private GameObject importTarget;
 
     #endregion
@@ -368,6 +367,12 @@ public class LocationToolsWindow : EditorWindow
                 EditorGUILayout.Space();
                 EditorGUILayout.HelpBox("No prefabs found within this text asset.", MessageType.Warning, true);
             }
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(" ", GUILayout.MaxWidth(125f));
+            maintainPrefabConnections = EditorGUILayout.ToggleLeft("Maintain prefab connections", maintainPrefabConnections);
+            EditorGUILayout.Space();
+            EditorGUILayout.EndHorizontal();
 
             // Buttons (Import)
             EditorGUILayout.BeginHorizontal();
