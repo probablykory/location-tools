@@ -27,6 +27,17 @@ public class BlueprintImporter : ScriptedImporter
     }
 }
 
+[ScriptedImporter(1, "vbuild")]
+public class VBuildImporter : ScriptedImporter
+{
+    public override void OnImportAsset(AssetImportContext ctx)
+    {
+        TextAsset subAsset = new TextAsset(File.ReadAllText(ctx.assetPath));
+        ctx.AddObjectToAsset("text", subAsset);
+        ctx.SetMainObject(subAsset);
+    }
+}
+
 public static class LocationToolExtensionMethods
 {
     public static List<string> ToList(this TextAsset textAsset)
@@ -82,7 +93,6 @@ public struct BlueprintPrefab
         EqualityComparer<TValue>.Default.Equals(value, default(TValue));
 }
 
-
 #endregion
 
 public class LocationToolsWindow : EditorWindow
@@ -120,6 +130,8 @@ public class LocationToolsWindow : EditorWindow
         EditorSceneManager.sceneOpened += OnSceneOpened;
         PrefabStage.prefabStageOpened += OnStageChanged;
         PrefabStage.prefabStageClosing += OnStageChanged;
+
+        DoEnableList();
         RefreshComponentTypes();
         RefreshSelectedComponentTypes();
     }
@@ -133,6 +145,8 @@ public class LocationToolsWindow : EditorWindow
         EditorSceneManager.sceneOpened -= OnSceneOpened;
         PrefabStage.prefabStageOpened -= OnStageChanged;
         PrefabStage.prefabStageClosing -= OnStageChanged;
+
+        DoDisableList();
     }
 
     void OnGUI()
@@ -205,7 +219,21 @@ public class LocationToolsWindow : EditorWindow
         structuresList.Clear();
     }
 
-    private GameObject FindPrefab(BlueprintPrefab blueprintPrefab, int index)
+    private static float InvariantFloat(string[] row, int index, float defaultValue = 0f)
+    {
+        if (index >= row.Length)
+        {
+            return defaultValue;
+        }
+        string text = row[index];
+        if (string.IsNullOrEmpty(text))
+        {
+            return defaultValue;
+        }
+        return float.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private GameObject FindPrefab(BlueprintPrefab blueprintPrefab)
     {
         if (cachedPrefabs.Count > 0)
         {
@@ -216,14 +244,31 @@ public class LocationToolsWindow : EditorWindow
             }
         }
 
-        GameObject prefab = (GameObject)AssetDatabase.LoadAssetAtPath("Assets/PrefabInstance/" + blueprintPrefab.prefabName + ".prefab", typeof(GameObject));
+        // GameObject prefab = (GameObject)AssetDatabase.LoadAssetAtPath("Assets/PrefabInstance/" + blueprintPrefab.prefabName + ".prefab", typeof(GameObject));
+        int index = 0;
+        string path = importSettings.Count > index ? importSettings[index] : null;
+        bool searching = importSettings.Count > index && !string.IsNullOrEmpty(path);
+        GameObject prefab = null; 
+        while (prefab == null && searching) {
+            prefab = (GameObject)AssetDatabase.LoadAssetAtPath(path + blueprintPrefab.prefabName + ".prefab", typeof(GameObject));
+
+            if (prefab != null)
+            {
+                cachedPrefabs.Add(prefab);
+                return prefab;
+            }
+
+            index++;
+            path = importSettings.Count > index ? importSettings[index] : null;
+            searching = importSettings.Count > index && !string.IsNullOrEmpty(path);
+            if (index > 50) // assuming no ones ever gonna put 50 search paths in here.
+                break;
+        }
         if (prefab != null)
         {
             cachedPrefabs.Add(prefab);
             return prefab;
-
         }
-        Debug.Log("I cant find: " + blueprintPrefab.prefabName + " INDEX: " + index);
         return null;
     }
 
@@ -236,24 +281,39 @@ public class LocationToolsWindow : EditorWindow
         {
             if (!string.IsNullOrEmpty(str) && str.IndexOf('#') == -1)
             {
-
-                prefab = default(BlueprintPrefab);
-                string[] array = str.Split(';');
-                if (array.Length >= 4)
-                {
-                    prefab = new BlueprintPrefab();
-                    prefab.prefabName = array[0];
-                    prefab.type = array[1] != null ? array[1] : "NONE";
-                    prefab.posX = float.Parse(array[2], System.Globalization.CultureInfo.InvariantCulture);
-                    prefab.posY = float.Parse(array[3], System.Globalization.CultureInfo.InvariantCulture);
-                }
-                if (array.Length >= 9)
-                {
-                    prefab.posZ = array[4] != null ? float.Parse(array[4], System.Globalization.CultureInfo.InvariantCulture) : 0;
-                    prefab.rotX = float.Parse(array[5], System.Globalization.CultureInfo.InvariantCulture);
-                    prefab.rotY = float.Parse(array[6], System.Globalization.CultureInfo.InvariantCulture);
-                    prefab.rotZ = float.Parse(array[7], System.Globalization.CultureInfo.InvariantCulture);
-                    prefab.rotW = array[8] != null ? float.Parse(array[8], System.Globalization.CultureInfo.InvariantCulture) : 0;
+                if (str.IndexOf(';') >= 0) {
+                    // .blueprint
+                    prefab = default(BlueprintPrefab);
+                    string[] array = str.Split(';');
+                    if (array.Length >= 9)
+                    {
+                        prefab = new BlueprintPrefab();
+                        prefab.prefabName = array[0];
+                        prefab.type = array[1] != null ? array[1] : "NONE";
+                        prefab.posX = InvariantFloat(array, 2, 0f);
+                        prefab.posY = InvariantFloat(array, 3, 0f);
+                        prefab.posZ = InvariantFloat(array, 4, 0f);;
+                        prefab.rotX = InvariantFloat(array, 5, 0f);
+                        prefab.rotY = InvariantFloat(array, 6, 0f);
+                        prefab.rotZ = InvariantFloat(array, 7, 0f);
+                        prefab.rotW = InvariantFloat(array, 8, 0f);
+                    }
+                } else {
+                    // .vbuild
+                    prefab = default(BlueprintPrefab);
+                    string[] array = str.Split(' ');
+                    if (array.Length >= 8) {
+                        prefab = new BlueprintPrefab();
+                        prefab.prefabName = array[0];
+                        prefab.rotX = InvariantFloat(array, 1, 0f);
+                        prefab.rotY = InvariantFloat(array, 2, 0f);
+                        prefab.rotZ = InvariantFloat(array, 3, 0f);
+                        prefab.rotW = InvariantFloat(array, 4, 0f);
+                        prefab.posX = InvariantFloat(array, 5, 0f);
+                        prefab.posY = InvariantFloat(array, 6, 0f);
+                        prefab.posZ = InvariantFloat(array, 7, 0f);
+                        prefab.type = "NONE";
+                    }
                 }
                 if (!BlueprintPrefab.IsDefault(prefab))
                 {
@@ -268,6 +328,7 @@ public class LocationToolsWindow : EditorWindow
     private void ImportObjects()
     {
         int counter = 0;
+        Dictionary<string, int> notFound = new Dictionary<string, int>();
 
         if (importTarget == null)
         {
@@ -286,7 +347,7 @@ public class LocationToolsWindow : EditorWindow
                 continue;
             }
 
-            GameObject prefab = FindPrefab(blueprintPrefab, counter);
+            GameObject prefab = FindPrefab(blueprintPrefab);
             if (prefab != null)
             {
                 Quaternion quat = new Quaternion(blueprintPrefab.rotX, blueprintPrefab.rotY, blueprintPrefab.rotZ, blueprintPrefab.rotW);
@@ -300,17 +361,32 @@ public class LocationToolsWindow : EditorWindow
                 } else {
                     Instantiate(prefab, new Vector3(blueprintPrefab.posX, blueprintPrefab.posY, blueprintPrefab.posZ), quat, importTarget.transform);
                 }
+            } else {
+                var name = blueprintPrefab.prefabName;
+                if (notFound.ContainsKey(name))
+                    notFound[name]++;
+                else
+                    notFound[name] = 1;
             }
             counter++;
         }
-        // Debug.Log("Line Done: " + counter);
+
+        if (notFound.Count > 0) {
+            Debug.LogWarning("Import was unable to find: " + string.Join(", ", notFound.Select(i => i.Value.ToString() + "x " + i.Key)));
+        }
     }
 
     #endregion
 
     #region State
 
+    private static string defaultImportPath = "Assets/PrefabInstance/";
+    private ReorderableList importSettingsList = null;
+    // private SerializedObject importSettings;
+    private List<string> importSettings = new List<string>() { defaultImportPath };
+
     private bool showImports = true;
+    private bool showImportSettings = false;
     private TextAsset blueprintAsset;
     private int blueprintPrefabCount = 0;
     List<string> blueprintsList = new List<string>();
@@ -322,6 +398,45 @@ public class LocationToolsWindow : EditorWindow
     #endregion
 
     #region GUI
+
+    private void DoEnableList()
+    {
+		importSettingsList = new ReorderableList(importSettings, typeof(String), false, false, true, true);
+		importSettingsList.drawElementCallback += importSettingsDrawListItems;
+        importSettingsList.onCanRemoveCallback += importSettingsCanRemoveCallback;
+		// importSettingsList.drawHeaderCallback += importSettingsDrawHeader;
+    }
+
+    private void DoDisableList()
+    {
+		importSettingsList.drawElementCallback -= importSettingsDrawListItems;
+        importSettingsList.onCanRemoveCallback -= importSettingsCanRemoveCallback;
+		// importSettingsList.drawHeaderCallback -= importSettingsDrawHeader;
+    }
+
+    private void importSettingsDrawListItems(Rect rect, int index, bool isActive, bool isFocused)
+	{
+        bool enabled = !defaultImportPath.Equals(importSettings[index]);
+        rect.y += 2;
+        if (index >= 0) {
+            GUI.enabled = enabled;
+            importSettings[index] = EditorGUI.TextField(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight), importSettings[index]);
+            GUI.enabled = true;
+        }
+	}
+
+    private bool importSettingsCanRemoveCallback(ReorderableList list) {
+        // Debug.Log($"list {list} {list.count} {list.index}");
+        string selection = list.list[list.index] as string;
+
+        if (list.index == 0 && defaultImportPath.Equals(selection)) {
+            return false;
+        }
+        if (list.list.Count > 1) {
+            return true;
+        }
+        return false;
+    }
 
     private void DoImportGUI()
     {
@@ -368,8 +483,9 @@ public class LocationToolsWindow : EditorWindow
                 EditorGUILayout.HelpBox("No prefabs found within this text asset.", MessageType.Warning, true);
             }
 
+            // Use PrefabUtility setting
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(" ", GUILayout.MaxWidth(125f));
+            EditorGUILayout.LabelField(" ", GUILayout.MaxWidth(125f)); // spacer
             maintainPrefabConnections = EditorGUILayout.ToggleLeft("Maintain prefab connections", maintainPrefabConnections);
             EditorGUILayout.Space();
             EditorGUILayout.EndHorizontal();
@@ -391,6 +507,26 @@ public class LocationToolsWindow : EditorWindow
             }
             EditorGUILayout.Space(2f);
             EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(10);
+
+            // Import Settings folder and list
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(" ", GUILayout.MaxWidth(125f)); // spacer
+            showImportSettings = EditorGUILayout.Foldout(showImportSettings, "Import path settings", true);
+
+            if (showImportSettings && importSettings != null && importSettingsList != null)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(" ", GUILayout.MaxWidth(6f)); // spacer
+
+                importSettingsList.DoLayoutList();
+            }
+            EditorGUILayout.LabelField(" ", GUILayout.MaxWidth(6f)); // spacer
+            EditorGUILayout.EndHorizontal();
+
 
 
             EditorGUILayout.Space(18);
