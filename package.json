@@ -1,0 +1,15 @@
+{
+  "name": "locationtools",
+  "version": "1.5.0",
+  "displayName": "Location Tools",
+  "description": "Updated set of tools for making locations in Valheim. Originally by Balrond.",
+  "unity": "2020.3",
+  "unityRelease": "33f1",
+  "documentationUrl": "https://github.com/probablykory/location-tools",
+  "dependencies": {},
+ "keywords": [
+    "Valheim",
+    "Unity",
+    "Locations"
+  ]
+}
