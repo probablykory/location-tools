@@ -22,4 +22,8 @@
 10. You should now have a Game Object that reflects the Blueprint. 
 11. Save the Game Object by dragging it from the Heirarchy menu into a project folder.
 
-
+## Common errors
+- If you receive type / namespace missing errors when you attempt to built an AssetBundle:
+    1. Uninstall Location Tools package
+    2. Build AssetBundle
+    3. The asset bundle should succeed now that the Location Tools package is removed
