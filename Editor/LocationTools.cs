@@ -162,8 +162,8 @@ public class LocationToolsWindow : EditorWindow
         DoGroupGUI();
         EditorGUILayout.Space(1f);
         DoStripGUI();
-        EditorGUILayout.Space(1f);
-        DoMiscGUI();
+        // EditorGUILayout.Space(1f);
+        // DoMiscGUI();
 
 
         GUILayout.FlexibleSpace();
@@ -1298,72 +1298,72 @@ public class LocationToolsWindow : EditorWindow
 
     #endregion
 
-    #region Misc Tools
+    // #region Misc Tools
 
-    private void SetImmortal(WearNTear wearNTear)
-    {
-        wearNTear.m_damages.m_slash = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_blunt = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_pierce = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_fire = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_spirit = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_lightning = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_poison = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_frost = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_pickaxe = HitData.DamageModifier.Immune;
-        wearNTear.m_damages.m_chop = HitData.DamageModifier.Immune;
-        wearNTear.m_noRoofWear = false;
-        wearNTear.m_noSupportWear = false;
+    // private void SetImmortal(WearNTear wearNTear)
+    // {
+    //     wearNTear.m_damages.m_slash = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_blunt = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_pierce = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_fire = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_spirit = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_lightning = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_poison = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_frost = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_pickaxe = HitData.DamageModifier.Immune;
+    //     wearNTear.m_damages.m_chop = HitData.DamageModifier.Immune;
+    //     wearNTear.m_noRoofWear = false;
+    //     wearNTear.m_noSupportWear = false;
 
-        wearNTear.m_destroyedEffect = null;
-    }
+    //     wearNTear.m_destroyedEffect = null;
+    // }
 
-    private void SetSelectionsToImmortal()
-    {
-        Type wntType = typeof(WearNTear);
+    // private void SetSelectionsToImmortal()
+    // {
+    //     Type wntType = typeof(WearNTear);
 
-        foreach (var go in Selection.gameObjects)
-        {
-            var wnt = go.GetComponent(wntType) as WearNTear;
-            if (wnt == null)
-            {
-                wnt = go.AddComponent(wntType) as WearNTear;
-            }
-            SetImmortal(wnt);
-        }
-    }
+    //     foreach (var go in Selection.gameObjects)
+    //     {
+    //         var wnt = go.GetComponent(wntType) as WearNTear;
+    //         if (wnt == null)
+    //         {
+    //             wnt = go.AddComponent(wntType) as WearNTear;
+    //         }
+    //         SetImmortal(wnt);
+    //     }
+    // }
 
-    private bool showMisc = false;
-    private void DoMiscGUI()
-    {
+    // private bool showMisc = false;
+    // private void DoMiscGUI()
+    // {
 
-        // Toolbar
-        GUILayout.BeginHorizontal(EditorStyles.toolbar);
-        showMisc = EditorGUILayout.Foldout(showMisc, "Misc", true, foldoutBoldStyle);
-        GUILayout.EndHorizontal();
+    //     // Toolbar
+    //     GUILayout.BeginHorizontal(EditorStyles.toolbar);
+    //     showMisc = EditorGUILayout.Foldout(showMisc, "Misc", true, foldoutBoldStyle);
+    //     GUILayout.EndHorizontal();
 
-        if (showMisc)
-        {
-            GUILayout.BeginHorizontal();
-            GUILayout.Space(6);
-            GUI.enabled = selectionCount > 0;
-            if (GUILayout.Button("Set WearNTear to immortal"))
-            {
-                SetSelectionsToImmortal();
-            }
-            GUI.enabled = true;
+    //     if (showMisc)
+    //     {
+    //         GUILayout.BeginHorizontal();
+    //         GUILayout.Space(6);
+    //         GUI.enabled = selectionCount > 0;
+    //         if (GUILayout.Button("Set WearNTear to immortal"))
+    //         {
+    //             SetSelectionsToImmortal();
+    //         }
+    //         GUI.enabled = true;
 
-            GUILayout.Space(4);
-            GUILayout.EndHorizontal();
+    //         GUILayout.Space(4);
+    //         GUILayout.EndHorizontal();
 
-            GUILayout.BeginHorizontal();
-            GUILayout.Space(6);
-            EditorGUILayout.HelpBox("  Creates a WearNTear if one isn't present.", MessageType.Info, true);
-            GUILayout.Space(4);
-            GUILayout.EndHorizontal();
+    //         GUILayout.BeginHorizontal();
+    //         GUILayout.Space(6);
+    //         EditorGUILayout.HelpBox("  Creates a WearNTear if one isn't present.", MessageType.Info, true);
+    //         GUILayout.Space(4);
+    //         GUILayout.EndHorizontal();
 
-        }
-    }
+    //     }
+    // }
 
-    #endregion
+    // #endregion
 }
