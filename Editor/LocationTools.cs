@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.AssetImporters;
 using UnityEditor.IMGUI.Controls;
@@ -1367,3 +1368,4 @@ public class LocationToolsWindow : EditorWindow
 
     // #endregion
 }
+#endif
