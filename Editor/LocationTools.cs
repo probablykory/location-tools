@@ -15,6 +15,7 @@ using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+
 #region Blueprint & LocationTool helpers
 
 [ScriptedImporter(1, "blueprint")]
@@ -102,6 +103,8 @@ public class LocationToolsWindow : EditorWindow
     private GUIStyle greyLabelStyle = null;
     private double renameTime;
 
+    private Type smcType = null;
+
     [SerializeField]
     private Vector2 m_ScrollPosition;
 
@@ -132,6 +135,8 @@ public class LocationToolsWindow : EditorWindow
         PrefabStage.prefabStageOpened += OnStageChanged;
         PrefabStage.prefabStageClosing += OnStageChanged;
 
+        smcType = Type.GetType("SimpleMeshCombine, assembly_simplemeshcombine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+
         DoEnableList();
         RefreshComponentTypes();
         RefreshSelectedComponentTypes();
@@ -156,13 +161,15 @@ public class LocationToolsWindow : EditorWindow
         EditorGUILayout.Space(1f);
         DoImportGUI();
         EditorGUILayout.Space(1f);
-        DoCombinerGUI();
-        EditorGUILayout.Space(1f);
         DoSelectionGUI();
+        EditorGUILayout.Space(1f);
+        DoSMCUI();
         EditorGUILayout.Space(1f);
         DoGroupGUI();
         EditorGUILayout.Space(1f);
         DoStripGUI();
+        EditorGUILayout.Space(1f);
+        DoCombinerGUI();
         // EditorGUILayout.Space(1f);
         // DoMiscGUI();
 
@@ -720,7 +727,7 @@ public class LocationToolsWindow : EditorWindow
 
     #region State
 
-    private bool showCombiner = true;
+    private bool showCombiner = false;
     GameObject combineSource;
     GameObject combineTarget = null;
     MeshFilter[] meshFilters = null;
@@ -748,7 +755,7 @@ public class LocationToolsWindow : EditorWindow
 
         // Toolbar
         GUILayout.BeginHorizontal(EditorStyles.toolbar);
-        showCombiner = EditorGUILayout.Foldout(showCombiner, "Mesh Combine", true, foldoutBoldStyle);
+        showCombiner = EditorGUILayout.Foldout(showCombiner, "Old Mesh Combine", true, foldoutBoldStyle);
         GUILayout.EndHorizontal();
 
         if (showCombiner)
@@ -1054,6 +1061,184 @@ public class LocationToolsWindow : EditorWindow
     #endregion
     #endregion
 
+    #region SMC UI Tool
+
+    #region Utils
+
+    public void PerformCombine()
+    {
+        if (smcType != null && smcSource != null && smcComponent != null)
+        {
+            //PrefabUtility.RecordPrefabInstancePropertyModifications(smcSource);
+
+            // invoke SMC methods
+            smcType.GetMethod("CombineMeshes").Invoke(smcComponent, Array.Empty<object>());
+            smcType.GetMethod("EnableRenderers").Invoke(smcComponent, new object[] { true });
+
+            // fetch resulting properties
+            GameObject combined = smcType.GetField("combined").GetValue(smcComponent) as GameObject;
+            string meshName = smcType.GetField("meshName").GetValue(smcComponent) as string;
+            GameObject copyTarget = smcType.GetField("copyTarget").GetValue(smcComponent) as GameObject;
+            //bool keepStructure = (bool)smcType.GetField("keepStructure").GetValue(smcComponent);
+            Mesh autoOverwrite = smcType.GetField("autoOverwrite").GetValue(smcComponent) as Mesh;
+
+            // Save generated mesh as an asset
+            string defaultfilePath = defaultMeshSafePath + "/" + smcSource.name + "." + meshName + ".asset";
+            string filePath = null;
+            
+            var newMeshFilter = combined.GetComponent<MeshFilter>();
+            if (autoOverwrite != null)
+            {
+                filePath = AssetDatabase.GetAssetPath(autoOverwrite);
+                if (filePath != null)
+                {
+                    Debug.Log($"Save Mesh asset, has overwrite and existing asset:  {filePath}");
+                    AssetDatabase.DeleteAsset(filePath);
+                }
+                else
+                {
+                    filePath = defaultfilePath;
+                    Debug.Log($"Save Mesh asset, has overwrite but made new asset:  {filePath}");
+                }
+            } else
+            {
+                filePath = defaultfilePath;
+                Debug.Log($"Save Mesh asset, made new overwrite and new asset:  {filePath}");
+            }
+
+            var target = Instantiate(combined, smcSource.transform.parent);
+
+            if (copyTarget != null)
+            {
+                target.name = copyTarget.name;
+            } else
+            {
+                target.name = target.name.Replace("(Clone)", "");
+            }
+            smcType.GetField("copyTarget").SetValue(smcComponent, target);
+
+
+            AssetDatabase.CreateAsset(newMeshFilter.sharedMesh, filePath);
+            smcType.GetField("autoOverwrite").SetValue(smcComponent, newMeshFilter.sharedMesh);
+            smcType.GetField("combined").SetValue(smcComponent, target);
+            EditorUtility.SetDirty(newMeshFilter);
+            // optionally, save immediately:
+            //AssetDatabase.SaveAssets();
+
+            // is this needed?
+            UnityEngine.Object.DestroyImmediate(combined);
+
+        }
+    }
+
+    public void RefreshSelectedCombineCandidates()
+    {
+        if (smcType != null)
+        {
+            combineCandidates = Selection.gameObjects
+                .SelectMany(go => go.GetComponentsInChildren(smcType, selectInactive))
+                .Select(c => c?.gameObject)
+                .Distinct().ToArray();
+
+            smcSource = Selection.gameObjects
+                .Select(go => go.GetComponent(smcType))
+                .Select(c => c?.gameObject)
+                .FirstOrDefault();
+
+            if (smcSource != null)
+            {
+                smcComponent = smcSource.GetComponent(smcType);
+            } else
+            {
+                smcComponent = null;
+            }
+            //var selectedCombineCandidates = Selection.gameObjects
+            //    .SelectMany(go => go.GetComponentsInChildren(smcType, selectInactive))
+            //    .Select(c => c?.gameObject)
+            //    .Distinct().ToList();
+
+            Debug.Log($"{combineCandidates.Length} candidates.  {string.Join(" ", combineCandidates.Select(c => c.name))}");
+        }
+        else
+        {
+            Debug.Log($"type not resolved wtf");
+        }
+    }
+
+    #endregion
+
+    #region State
+
+    private string defaultMeshSafePath = "Assets/Mesh";
+    private bool showSMC = true;
+    private object smcComponent = null;
+    private GameObject smcSource;
+    private GameObject[] combineCandidates;
+    #endregion
+
+    #region GUI
+
+    private void DoSMCUI()
+    {
+        if (componentTypeStrings.Contains("SimpleMeshCombine"))
+        {
+            RefreshSelectedCombineCandidates();
+        }
+
+
+        // Toolbar
+        GUILayout.BeginHorizontal(EditorStyles.toolbar);
+        showSMC = EditorGUILayout.Foldout(showSMC, "Simple Mesh Combine", true, foldoutBoldStyle);
+        GUILayout.EndHorizontal();
+
+        if (showSMC)
+        {
+            GUILayout.BeginVertical();
+            EditorGUILayout.Space(2);
+
+            var label = "";
+            var isSmcValid = smcSource != null && smcComponent != null;
+            if (!isSmcValid)
+                if (combineCandidates.Length > 0)
+                    label = "Combine candidates";
+                else
+                    label = "Select a valid SMC component";
+
+            EditorGUILayout.LabelField(label);
+            for (var index = 0; index < combineCandidates.Length; index++)
+            {
+                combineCandidates[index] = (GameObject)EditorGUILayout.ObjectField(combineCandidates[index], typeof(GameObject), true);
+            }
+
+            // Group button
+            GUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+
+            GUI.enabled = isSmcValid;
+            if (GUILayout.Button("Combine", GUILayout.Width(135f)))
+            {
+                PerformCombine();
+                //GetAllMeshFilter();
+                //CreateNewGameObject();
+                //CombineMeshes();
+                Repaint();
+            }
+            GUI.enabled = true;
+            GUILayout.Space(2);
+            GUILayout.EndHorizontal();
+
+
+            EditorGUILayout.Space(18);
+            GUILayout.EndVertical();
+        }
+    }
+
+    #endregion
+
+
+    #endregion
+
+
     #region Strip Tool
 
     #region Utils
@@ -1205,24 +1390,26 @@ public class LocationToolsWindow : EditorWindow
 
     private void RefreshSelectedComponentTypes()
     {
+        if (!transferComponents) return;
+
         var type = GetTypeTargetMode();
         var selectedCompTypes = Selection.gameObjects
             .SelectMany(go => go.GetComponentsInChildren(type, selectInactive))
             .Select(c => c?.GetType())
             .Distinct().ToList();
 
-        // Debug.Log($"selectedCompTypes {selectedCompTypes.Count}");
+        //Debug.Log($"selectedCompTypes {selectedCompTypes.Count}:  {string.Join(" ", selectedCompTypes)}");
 
         groupComponentTypeOptions = selectedCompTypes
             .Where(t => t != null)
             .Select(t => t.ToString()).OrderBy(s => s).ToArray();
 
-        // Debug.Log($"groupComponentTypeOptions {groupComponentTypeOptions.Count()}");
+        //Debug.Log($"groupComponentTypeOptions {groupComponentTypeOptions.Count()}:  {string.Join(" ", groupComponentTypeOptions)}");
 
-        if (groupComponentTypeFlags.Count == selectedCompTypes.Count)
+        if (selectedCompTypes.Count > 0 && groupComponentTypeFlags.Count == selectedCompTypes.Count)
         {
             groupComponentTypeFlags = groupComponentTypeOptions
-                .Select((v) => new { Key = v, Value = groupComponentTypeFlags[v] })
+                .Select((v) => new { Key = v, Value = groupComponentTypeFlags.ContainsKey(v) ? groupComponentTypeFlags[v] : false })
                 .ToDictionary(o => o.Key, o => o.Value);
         }
         else
@@ -1231,7 +1418,7 @@ public class LocationToolsWindow : EditorWindow
                 .Select((v) => new { Key = v, Value = false })
                 .ToDictionary(o => o.Key, o => o.Value);
         }
-        // Debug.Log($"groupComponentTypeFlags {groupComponentTypeFlags.Count}");
+        //Debug.Log($"groupComponentTypeFlags {groupComponentTypeFlags.Count}");
     }
 
     #endregion
@@ -1267,6 +1454,8 @@ public class LocationToolsWindow : EditorWindow
             transferComponents = EditorGUILayout.ToggleLeft("Transfer Components to new parent", transferComponents);
             if (transferComponents)
             {
+                RefreshSelectedComponentTypes();
+
                 // type toggles
                 var updatedFlags = new Dictionary<string, bool>(groupComponentTypeFlags);
                 foreach (var key in groupComponentTypeFlags.Keys)
