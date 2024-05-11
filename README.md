@@ -25,6 +25,10 @@
 
 ## Changes
 
+### v1.6.1
+* Moved MenuItem from Tools to Window menu, for consistency with other tools
+* Fixed NRE in new SMC GUI logic.
+
 ### v1.6.0
 * Wrote a new utility to act as a UI for valheim's SimpleMeshCombine component.  Should be friendlier & more reliable, but kept the old Combine tool just in case.
 * Bugfix for Group tool: resolve occasional NRE when selection change yields a similar but not identical set of availble components.

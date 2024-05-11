@@ -108,7 +108,7 @@ public class LocationToolsWindow : EditorWindow
     [SerializeField]
     private Vector2 m_ScrollPosition;
 
-    [MenuItem("Tools/Location Tools")]
+    [MenuItem("Window/Location Tools")]
     static void ShowWindow()
     {
         // Get existing open window or if none, make a new one:
@@ -1152,16 +1152,13 @@ public class LocationToolsWindow : EditorWindow
             {
                 smcComponent = null;
             }
-            //var selectedCombineCandidates = Selection.gameObjects
-            //    .SelectMany(go => go.GetComponentsInChildren(smcType, selectInactive))
-            //    .Select(c => c?.gameObject)
-            //    .Distinct().ToList();
 
-            Debug.Log($"{combineCandidates.Length} candidates.  {string.Join(" ", combineCandidates.Select(c => c.name))}");
+            //Debug.Log($"{combineCandidates.Length} candidates.  {string.Join(" ", combineCandidates.Select(c => c.name))}");
         }
         else
         {
-            Debug.Log($"type not resolved wtf");
+            combineCandidates = null;
+            //Debug.Log($"type not resolved wtf");
         }
     }
 
@@ -1185,7 +1182,6 @@ public class LocationToolsWindow : EditorWindow
             RefreshSelectedCombineCandidates();
         }
 
-
         // Toolbar
         GUILayout.BeginHorizontal(EditorStyles.toolbar);
         showSMC = EditorGUILayout.Foldout(showSMC, "Simple Mesh Combine", true, foldoutBoldStyle);
@@ -1199,15 +1195,17 @@ public class LocationToolsWindow : EditorWindow
             var label = "";
             var isSmcValid = smcSource != null && smcComponent != null;
             if (!isSmcValid)
-                if (combineCandidates.Length > 0)
+                if (combineCandidates != null && combineCandidates.Length > 0)
                     label = "Combine candidates";
                 else
                     label = "Select a valid SMC component";
 
             EditorGUILayout.LabelField(label);
-            for (var index = 0; index < combineCandidates.Length; index++)
-            {
-                combineCandidates[index] = (GameObject)EditorGUILayout.ObjectField(combineCandidates[index], typeof(GameObject), true);
+            if (combineCandidates != null && combineCandidates.Length > 0) {
+                for (var index = 0; index < combineCandidates.Length; index++)
+                {
+                    combineCandidates[index] = (GameObject)EditorGUILayout.ObjectField(combineCandidates[index], typeof(GameObject), true);
+                }
             }
 
             // Group button
@@ -1218,15 +1216,11 @@ public class LocationToolsWindow : EditorWindow
             if (GUILayout.Button("Combine", GUILayout.Width(135f)))
             {
                 PerformCombine();
-                //GetAllMeshFilter();
-                //CreateNewGameObject();
-                //CombineMeshes();
                 Repaint();
             }
             GUI.enabled = true;
             GUILayout.Space(2);
             GUILayout.EndHorizontal();
-
 
             EditorGUILayout.Space(18);
             GUILayout.EndVertical();
